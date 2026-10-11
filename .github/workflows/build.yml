@@ -52,14 +52,13 @@ jobs:
           echo "Certificate and profile installed"
 
       - name: Generate Xcode project
-        run: cd TOTPAuthenticator && xcodegen generate
+        run: xcodegen generate
 
       - name: Show project structure
-        run: ls -la TOTPAuthenticator/ && find TOTPAuthenticator -name "*.swift" | head -20
+        run: ls -la && find . -name "*.xcodeproj" -o -name "*.swift" | head -20
 
       - name: Build archive
         run: |
-          cd TOTPAuthenticator
           xcodebuild archive \
             -project TOTPAuthenticator.xcodeproj \
             -scheme TOTPAuthenticator \
@@ -75,8 +74,6 @@ jobs:
 
       - name: Export IPA
         run: |
-          cd TOTPAuthenticator
-          
           cat > /tmp/ExportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -106,5 +103,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TOTPAuthenticator-IPA
-          path: TOTPAuthenticator/build/ipa/*.ipa
+          path: build/ipa/*.ipa
           retention-days: 30
