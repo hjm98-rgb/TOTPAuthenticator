@@ -20,8 +20,13 @@ jobs:
 
       - name: Decode and install certificate
         run: |
-          echo "${{ secrets.CERTIFICATE_P12 }}" | base64 --decode > /tmp/cert.p12
-          echo "${{ secrets.PROVISIONING_PROFILE }}" | base64 --decode > /tmp/profile.mobileprovision
+          # Decode base64 secrets (strip any whitespace/newlines)
+          echo "${{ secrets.CERTIFICATE_P12 }}" | tr -d '\n' | base64 --decode > /tmp/cert.p12
+          echo "${{ secrets.PROVISIONING_PROFILE }}" | tr -d '\n' | base64 --decode > /tmp/profile.mobileprovision
+          
+          # Verify files
+          ls -la /tmp/cert.p12 /tmp/profile.mobileprovision
+          openssl pkcs12 -in /tmp/cert.p12 -noout -passin pass:${{ secrets.CERTIFICATE_PASSWORD }} && echo "p12 password OK"
           
           # Create keychain
           security create-keychain -p buildpassword build.keychain-db
@@ -29,8 +34,8 @@ jobs:
           security unlock-keychain -p buildpassword build.keychain-db
           security set-keychain-settings -t 3600 -u build.keychain-db
           
-          # Import certificate
-          security import /tmp/cert.p12 -k build.keychain-db -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+          # Import certificate with -legacy flag for compatibility
+          security import /tmp/cert.p12 -k build.keychain-db -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign -legacy
           
           # Set key partition list
           security set-key-partition-list -S apple-tool:,apple: -s -k buildpassword build.keychain-db
@@ -38,12 +43,13 @@ jobs:
           # Install provisioning profile
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles/
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          echo "Certificate and profile installed"
 
       - name: Generate Xcode project
         run: cd TOTPAuthenticator && xcodegen generate
 
-      - name: Show project
-        run: ls -la TOTPAuthenticator/
+      - name: Show project structure
+        run: ls -la TOTPAuthenticator/ && find TOTPAuthenticator -name "*.swift" | head -20
 
       - name: Build archive
         run: |
@@ -55,15 +61,16 @@ jobs:
             -archivePath build/TOTPAuthenticator.xcarchive \
             DEVELOPMENT_TEAM=2TAD594A66 \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
             CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="00008020-000A39E42603802E87" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=NO \
             -allowProvisioningUpdates
 
       - name: Export IPA
         run: |
           cd TOTPAuthenticator
           
-          # Create export options
           cat > /tmp/ExportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
