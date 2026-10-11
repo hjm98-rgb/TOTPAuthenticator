@@ -2,7 +2,7 @@ name: TOTPAuthenticator
 options:
   bundleIdPrefix: com.cert.account
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "16.0"
   xcodeVersion: "15.0"
 settings:
   base:

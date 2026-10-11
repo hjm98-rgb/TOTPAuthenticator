@@ -32,7 +32,7 @@ struct TOTPService {
                 CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1),
                        keyBytes.baseAddress, key.count,
                        counterBytes.baseAddress, counterData.count,
-                       &hmac, nil)
+                       &hmac)
             }
         }
         
