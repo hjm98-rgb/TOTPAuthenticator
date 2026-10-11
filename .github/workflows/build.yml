@@ -24,9 +24,14 @@ jobs:
           echo "${{ secrets.CERTIFICATE_P12 }}" | tr -d '\n' | base64 --decode > /tmp/cert.p12
           echo "${{ secrets.PROVISIONING_PROFILE }}" | tr -d '\n' | base64 --decode > /tmp/profile.mobileprovision
           
-          # Verify files
           ls -la /tmp/cert.p12 /tmp/profile.mobileprovision
-          openssl pkcs12 -in /tmp/cert.p12 -noout -passin pass:${{ secrets.CERTIFICATE_PASSWORD }} && echo "p12 password OK"
+          
+          # Convert p12 to pem using openssl (password works with openssl)
+          openssl pkcs12 -in /tmp/cert.p12 -out /tmp/cert.pem -nodes -passin pass:${{ secrets.CERTIFICATE_PASSWORD }}
+          
+          # Split pem into cert and key
+          openssl x509 -in /tmp/cert.pem -out /tmp/cert_only.pem
+          openssl rsa -in /tmp/cert.pem -out /tmp/key_only.pem
           
           # Create keychain
           security create-keychain -p buildpassword build.keychain-db
@@ -34,8 +39,9 @@ jobs:
           security unlock-keychain -p buildpassword build.keychain-db
           security set-keychain-settings -t 3600 -u build.keychain-db
           
-          # Import certificate with -legacy flag for compatibility
-          security import /tmp/cert.p12 -k build.keychain-db -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign -legacy
+          # Import certificate and key separately
+          security import /tmp/cert_only.pem -k build.keychain-db
+          security import /tmp/key_only.pem -k build.keychain-db -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
           
           # Set key partition list
           security set-key-partition-list -S apple-tool:,apple: -s -k buildpassword build.keychain-db
